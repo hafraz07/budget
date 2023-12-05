@@ -5,7 +5,9 @@ from enum import Enum
 
 import matplotlib.pyplot as plt
 
-FILENAME = "transactions.csv"
+RULES = {
+    "Biltpymts": "Rent",
+}
 
 
 class Fields(Enum):
@@ -14,6 +16,7 @@ class Fields(Enum):
     DESCRIPTION = 2
     CATEGORY = 3
     TAGS = 4
+    AMOUNT = 5
 
 
 def read_file(filename):
@@ -49,11 +52,9 @@ def aggregate_by_tags(csvreader):
 
 def _aggregate_by_key(csvreader, index):
     aggregated = defaultdict(float)
-    # extracting field names through first row
-    fields = next(csvreader)
     for row in csvreader:
         field = row[index]
-        amount = row[-1]
+        amount = row[Fields.AMOUNT.value]
         if index == Fields.DATE.value:
             field = get_month_name(field)
         aggregated[field] += abs(float(amount))
@@ -88,12 +89,31 @@ def plot_bar(categories, values):
     plt.show()
 
 
+def show_highest_categories(data, month: int):
+    """Display a bar chart with the amount spent in categories in a given month"""
+    categories = defaultdict(float)
+    for date, account, transaction_name, category, tags, amount in data:
+        transaction_month = date.split("-")[1]
+        if int(transaction_month) == month:
+            # Recategorize if needed
+            if transaction_name in RULES:
+                category = RULES[transaction_name]
+            categories[category] += abs(float(amount))
+
+    # Sort by amount
+    categories = dict(
+        sorted(categories.items(), key=lambda item: item[1], reverse=True)
+    )
+    plot_bar(categories.keys(), categories.values())
+
+
 def main():
     filename = "transactions.csv"
     with open(filename, "r") as csvfile:
         csvreader = csv.reader(csvfile)
-        aggregated = aggregate_by_category(csvreader)
-        plot_bar(aggregated.keys(), aggregated.values())
+        # extracting field names through first row
+        fields = next(csvreader)
+        show_highest_categories(csvreader, 11)
 
 
 if __name__ == "__main__":
