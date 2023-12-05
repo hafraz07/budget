@@ -63,23 +63,28 @@ def _aggregate_by_key(csvreader, index):
 def plot_bar(categories, values):
     # Figure Size
     fig, ax = plt.subplots(figsize=(16, 9))
-    ax.bar(categories, values, color="purple", width=0.4)
+    ax.barh(
+        list(categories),
+        values,
+        color=["purple", "maroon", "orange", "green", "salmon"],
+    )
 
     # Add annotation to bars
     for bar in ax.patches:
         ax.annotate(
-            f"${bar.get_height():,.0f}",
-            (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+            f"${bar.get_width():,.0f}",
+            (bar.get_width(), bar.get_y() + bar.get_height() / 2),
             ha="center",
             va="center",
             size=15,
-            xytext=(0, 8),
+            xytext=(30, 0),
             textcoords="offset points",
         )
 
+    ax.invert_yaxis()
     ax.xaxis.set_label("Months")
     ax.yaxis.set_label("Amount")
-    ax.set_title("Spending by Months")
+    ax.set_title("Spending by Months", loc="left")
     plt.show()
 
 
@@ -87,7 +92,7 @@ def main():
     filename = "transactions.csv"
     with open(filename, "r") as csvfile:
         csvreader = csv.reader(csvfile)
-        aggregated = aggregate_by_month(csvreader)
+        aggregated = aggregate_by_category(csvreader)
         plot_bar(aggregated.keys(), aggregated.values())
 
 
