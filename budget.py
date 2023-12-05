@@ -29,30 +29,39 @@ def get_month_name(date_string):
     return calendar.month_abbr[month_num]
 
 
-def aggregate_by_category(csvreader):
-    aggregated = _aggregate_by_key(csvreader, Fields.CATEGORY.value)
-    return dict(sorted(aggregated.items(), key=lambda item: item[1], reverse=True))
+def aggregate_by_category(data, month=0):
+    categories = defaultdict(float)
+    for date, account, transaction_name, category, tags, amount in data:
+        transaction_month = date.split("-")[1]
+        if int(transaction_month) == month:
+            # Recategorize if needed
+            if transaction_name in RULES:
+                category = RULES[transaction_name]
+            categories[category] += abs(float(amount))
+
+    # Sort by amount
+    return dict(sorted(categories.items(), key=lambda item: item[1], reverse=True))
 
 
-def aggregate_by_month(csvreader):
-    return _aggregate_by_key(csvreader, Fields.DATE.value)
+def aggregate_by_month(data):
+    return _aggregate_by_key(data, Fields.DATE.value)
 
 
-def aggregate_by_account(csvreader):
-    return _aggregate_by_key(csvreader, Fields.ACCOUNT.value)
+def aggregate_by_account(data):
+    return _aggregate_by_key(data, Fields.ACCOUNT.value)
 
 
-def aggregate_by_transaction(csvreader):
-    return _aggregate_by_key(csvreader, Fields.DESCRIPTION.value)
+def aggregate_by_transaction(data):
+    return _aggregate_by_key(data, Fields.DESCRIPTION.value)
 
 
-def aggregate_by_tags(csvreader):
-    return _aggregate_by_key(csvreader, Fields.TAGS.value)
+def aggregate_by_tags(data):
+    return _aggregate_by_key(data, Fields.TAGS.value)
 
 
-def _aggregate_by_key(csvreader, index):
+def _aggregate_by_key(data, index):
     aggregated = defaultdict(float)
-    for row in csvreader:
+    for row in data:
         field = row[index]
         amount = row[Fields.AMOUNT.value]
         if index == Fields.DATE.value:
@@ -91,19 +100,7 @@ def plot_bar(categories, values):
 
 def show_highest_categories(data, month: int):
     """Display a bar chart with the amount spent in categories in a given month"""
-    categories = defaultdict(float)
-    for date, account, transaction_name, category, tags, amount in data:
-        transaction_month = date.split("-")[1]
-        if int(transaction_month) == month:
-            # Recategorize if needed
-            if transaction_name in RULES:
-                category = RULES[transaction_name]
-            categories[category] += abs(float(amount))
-
-    # Sort by amount
-    categories = dict(
-        sorted(categories.items(), key=lambda item: item[1], reverse=True)
-    )
+    categories = aggregate_by_category(data, month)
     plot_bar(categories.keys(), categories.values())
 
 
