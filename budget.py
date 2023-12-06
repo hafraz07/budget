@@ -10,6 +10,12 @@ RULES = {
 }
 
 
+class bcolors:
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    ENDC = "\033[0m"
+
+
 class Fields(Enum):
     DATE = 0
     ACCOUNT = 1
@@ -29,15 +35,16 @@ def get_month_name(date_string):
     return calendar.month_abbr[month_num]
 
 
-def aggregate_by_category(data, month=0):
+def aggregate_by_category(data):
+    """Return dict with key category and dollar amount
+    spent on that category. Recategorizes categories according
+    to recategorization rules."""
     categories = defaultdict(float)
     for date, account, transaction_name, category, tags, amount in data:
-        transaction_month = date.split("-")[1]
-        if int(transaction_month) == month:
-            # Recategorize if needed
-            if transaction_name in RULES:
-                category = RULES[transaction_name]
-            categories[category] += abs(float(amount))
+        # Recategorize if needed
+        if transaction_name in RULES:
+            category = RULES[transaction_name]
+        categories[category] += float(amount)
 
     # Sort by amount
     return dict(sorted(categories.items(), key=lambda item: item[1], reverse=True))
@@ -66,7 +73,7 @@ def _aggregate_by_key(data, index):
         amount = row[Fields.AMOUNT.value]
         if index == Fields.DATE.value:
             field = get_month_name(field)
-        aggregated[field] += abs(float(amount))
+        aggregated[field] += float(amount)
     return aggregated
 
 
@@ -92,16 +99,44 @@ def plot_bar(categories, values):
         )
 
     ax.invert_yaxis()
-    ax.xaxis.set_label("Months")
-    ax.yaxis.set_label("Amount")
     ax.set_title("Spending by Months", loc="left")
     plt.show()
 
 
-def show_highest_categories(data, month: int):
-    """Display a bar chart with the amount spent in categories in a given month"""
-    categories = aggregate_by_category(data, month)
+def show_highest_categories(data):
+    """Display a bar chart with the amount spent in categories in a given month. Only includes transactions from given month. Otherwise includes all transactions."""
+    categories = aggregate_by_category(data)
     plot_bar(categories.keys(), categories.values())
+
+
+def print_transactions(data, expected_category):
+    print(expected_category)
+    transactions = []
+    for row in data:
+        if expected_category == row[Fields.CATEGORY.value]:
+            transactions.append(row)
+
+    transactions = sorted(transactions, key=lambda item: float(item[-1]))
+    for date, account, transaction_name, category, tags, amount in transactions:
+        print_amount = (
+            f"{bcolors.RED}${amount[1:]}"
+            if float(amount) < 0
+            else f"{bcolors.GREEN}+${amount}"
+        )
+        print(f"{date} {transaction_name} {print_amount}{bcolors.ENDC}")
+    print()
+
+
+def get_month(date: str) -> int:
+    return int(date.split("-")[1])
+
+
+def filter_by_month(transactions, month: int):
+    """Return list of transactions for the given month"""
+    return filter(
+        lambda transaction: get_month(transaction[Fields.DATE.value]) == month,
+        transactions,
+    )
 
 
 def main():
@@ -109,8 +144,12 @@ def main():
     with open(filename, "r") as csvfile:
         csvreader = csv.reader(csvfile)
         # extracting field names through first row
-        fields = next(csvreader)
-        show_highest_categories(csvreader, 11)
+        _ = next(csvreader)
+
+        filtered_transactions = list(filter_by_month(csvreader, 11))
+
+        print_transactions(filtered_transactions, "General Merchandise")
+        show_highest_categories(filtered_transactions)
 
 
 if __name__ == "__main__":
