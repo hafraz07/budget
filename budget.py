@@ -2,11 +2,16 @@ import calendar
 import csv
 from collections import defaultdict
 from enum import Enum
+from functools import reduce
 
 import matplotlib.pyplot as plt
 
 RULES = {
     "Biltpymts": "Rent",
+    "American Express": "Restaurants",
+    "Verizon": "Internet",
+    "Mint Mobile": "Telephone",
+    "Shake Shack": "Restaurants",
 }
 
 
@@ -41,11 +46,9 @@ def aggregate_by_category(data):
     to recategorization rules."""
     categories = defaultdict(float)
     for date, account, transaction_name, category, tags, amount in data:
-        # Recategorize if needed
-        if transaction_name in RULES:
-            category = RULES[transaction_name]
         categories[category] += float(amount)
 
+    # categories = {category: value * -1 for category, value in categories.items()}
     # Sort by amount
     return dict(sorted(categories.items(), key=lambda item: item[1], reverse=True))
 
@@ -109,26 +112,39 @@ def show_highest_categories(data):
     plot_bar(categories.keys(), categories.values())
 
 
-def print_transactions(data, expected_category):
-    print(expected_category)
-    transactions = []
-    for row in data:
-        if expected_category == row[Fields.CATEGORY.value]:
-            transactions.append(row)
-
-    transactions = sorted(transactions, key=lambda item: float(item[-1]))
-    for date, account, transaction_name, category, tags, amount in transactions:
-        print_amount = (
-            f"{bcolors.RED}${amount[1:]}"
-            if float(amount) < 0
-            else f"{bcolors.GREEN}+${amount}"
+def print_transactions(transactions, categories: list):
+    for category in categories:
+        filtered_transactions = filter(
+            lambda transaction: transaction[Fields.CATEGORY.value] == category,
+            transactions,
         )
-        print(f"{date} {transaction_name} {print_amount}{bcolors.ENDC}")
-    print()
+        sorted_by_amount = sorted(
+            filtered_transactions, key=lambda item: float(item[-1])
+        )
+
+        print(category)
+        for date, _, transaction_name, _, _, amount in sorted_by_amount:
+            print_amount = (
+                f"{bcolors.RED}${amount[1:]}"
+                if float(amount) < 0
+                else f"{bcolors.GREEN}+${amount}"
+            )
+            print(f"{date} {transaction_name} {print_amount}{bcolors.ENDC}")
+        print()
 
 
 def get_month(date: str) -> int:
     return int(date.split("-")[1])
+
+
+def apply_rules(transactions):
+    def _apply_rules(transaction):
+        transaction_name = transaction[Fields.DESCRIPTION.value]
+        if transaction_name in RULES:
+            transaction[Fields.CATEGORY.value] = RULES[transaction_name]
+        return transaction
+
+    return map(_apply_rules, transactions)
 
 
 def filter_by_month(transactions, month: int):
@@ -139,17 +155,38 @@ def filter_by_month(transactions, month: int):
     )
 
 
+def calculate_summary_data(transactions):
+    total_income, total_expenses = 0, 0
+    for transaction in transactions:
+        amount = float(transaction[Fields.AMOUNT.value])
+        if amount < 0:
+            total_expenses += amount
+        else:
+            total_income += amount
+
+    net_cash_flow = total_income - abs(total_expenses)
+    return total_income, total_expenses, net_cash_flow
+
+
+def show_month_info(transactions, month: int):
+    transactions = filter_by_month(transactions, month)
+    transactions = list(apply_rules(transactions))
+
+    total_income, total_expenses, net_cash_flow = calculate_summary_data(transactions)
+    print(f"Total Income: {total_income:.2f}")
+    print(f"Total Expenses: {total_expenses:.2f}")
+    print(f"Net Cash Flow: {net_cash_flow:.2f}")
+    print_transactions(transactions, [])
+    show_highest_categories(transactions)
+
+
 def main():
     filename = "transactions.csv"
     with open(filename, "r") as csvfile:
         csvreader = csv.reader(csvfile)
         # extracting field names through first row
         _ = next(csvreader)
-
-        filtered_transactions = list(filter_by_month(csvreader, 11))
-
-        print_transactions(filtered_transactions, "General Merchandise")
-        show_highest_categories(filtered_transactions)
+        show_month_info(csvreader, 11)
 
 
 if __name__ == "__main__":
