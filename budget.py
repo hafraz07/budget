@@ -4,6 +4,7 @@ from collections import defaultdict
 from enum import Enum
 from functools import reduce
 
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
 RULES = {
@@ -74,13 +75,39 @@ def _aggregate_by_key(data, index):
     return aggregated
 
 
-def plot_bar(categories, values, **kwargs):
+def plot_vertical_bar(categories, values, title, **kwargs):
+    # Figure Size
+    _, ax = plt.subplots(figsize=(16, 9))
+    ax.bar(
+        list(categories),
+        values,
+        color=mcolors.TABLEAU_COLORS,
+    )
+
+    # Add annotation to bars
+    for bar in ax.patches:
+        ax.annotate(
+            f"${bar.get_height():,.0f}",
+            (bar.get_x() + 0.2, bar.get_height()),
+            ha="center",
+            va="center",
+            size=13,
+            xytext=(0, 8),
+            textcoords="offset points",
+        )
+
+    ax.invert_xaxis()
+    ax.set_title(title, loc="left")
+    plt.show()
+
+
+def plot_horizontal_bar(categories, values, title):
     # Figure Size
     _, ax = plt.subplots(figsize=(16, 9))
     ax.barh(
         list(categories),
         values,
-        color=["purple", "maroon", "orange", "green", "salmon"],
+        color=mcolors.TABLEAU_COLORS,
     )
 
     # Add annotation to bars
@@ -95,16 +122,15 @@ def plot_bar(categories, values, **kwargs):
             textcoords="offset points",
         )
 
-    if "invert" in kwargs and kwargs["invert"] is True:
-        ax.invert_yaxis()
-    ax.set_title("Spending by Category", loc="left")
+    ax.invert_yaxis()
+    ax.set_title(title, loc="left")
     plt.show()
 
 
 def show_highest_categories(data):
     """Display a bar chart with the amount spent in categories in a given month. Only includes transactions from given month. Otherwise includes all transactions."""
     categories = aggregate_by_category(data)
-    plot_bar(categories.keys(), categories.values(), invert=True)
+    plot_horizontal_bar(categories.keys(), categories.values(), "Spending by Category")
 
 
 def print_transactions(transactions, categories: list):
@@ -217,7 +243,7 @@ def show_net_cash_flow(transactions):
     """Display bar chart with net cash flow
     by month"""
     months = aggregate_by_month(transactions)
-    plot_bar(months.keys(), months.values())
+    plot_vertical_bar(months.keys(), months.values(), "Net Cash Flow")
 
 
 def main():
@@ -227,9 +253,9 @@ def main():
         # extracting field names through first row
         _ = next(transactions)
 
-        # transactions = filter_by_month(csvreader, 11)
-        # show_summary(transactions, ["Rent"])
-        show_net_cash_flow(transactions)
+        transactions = filter_by_month(transactions, 11)
+        show_summary(transactions, ["Rent"])
+        # show_net_cash_flow(transactions)
 
 
 if __name__ == "__main__":
