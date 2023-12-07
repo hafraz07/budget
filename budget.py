@@ -30,11 +30,6 @@ class Fields(Enum):
     AMOUNT = 5
 
 
-def read_file(filename):
-    with open(filename, "r") as csvfile:
-        return csv.reader(csvfile)
-
-
 def get_month_name(date_string):
     month_num = int(date_string.split("-")[1])
     return calendar.month_abbr[month_num]
@@ -48,7 +43,6 @@ def aggregate_by_category(data):
     for date, account, transaction_name, category, tags, amount in data:
         categories[category] += float(amount)
 
-    # categories = {category: value * -1 for category, value in categories.items()}
     # Sort by amount
     return dict(sorted(categories.items(), key=lambda item: item[1], reverse=True))
 
@@ -80,9 +74,9 @@ def _aggregate_by_key(data, index):
     return aggregated
 
 
-def plot_bar(categories, values):
+def plot_bar(categories, values, **kwargs):
     # Figure Size
-    fig, ax = plt.subplots(figsize=(16, 9))
+    _, ax = plt.subplots(figsize=(16, 9))
     ax.barh(
         list(categories),
         values,
@@ -101,15 +95,16 @@ def plot_bar(categories, values):
             textcoords="offset points",
         )
 
-    ax.invert_yaxis()
-    ax.set_title("Spending by Months", loc="left")
+    if "invert" in kwargs and kwargs["invert"] is True:
+        ax.invert_yaxis()
+    ax.set_title("Spending by Category", loc="left")
     plt.show()
 
 
 def show_highest_categories(data):
     """Display a bar chart with the amount spent in categories in a given month. Only includes transactions from given month. Otherwise includes all transactions."""
     categories = aggregate_by_category(data)
-    plot_bar(categories.keys(), categories.values())
+    plot_bar(categories.keys(), categories.values(), invert=True)
 
 
 def print_transactions(transactions, categories: list):
@@ -168,25 +163,73 @@ def calculate_summary_data(transactions):
     return total_income, total_expenses, net_cash_flow
 
 
-def show_month_info(transactions, month: int):
-    transactions = filter_by_month(transactions, month)
+def show_summary(transactions, categories=[]):
+    """
+    Given transactions and categories(optional),
+    1. Print Cash Flow Information
+    2. Print Transactions for provided categories
+    3. Display Bar chart with category breakdown
+    """
     transactions = list(apply_rules(transactions))
 
     total_income, total_expenses, net_cash_flow = calculate_summary_data(transactions)
     print(f"Total Income: {total_income:.2f}")
     print(f"Total Expenses: {total_expenses:.2f}")
     print(f"Net Cash Flow: {net_cash_flow:.2f}")
-    print_transactions(transactions, [])
+    print()
+    print_transactions(transactions, categories)
     show_highest_categories(transactions)
+
+
+def show_cash_flow(transactions):
+    cash_flow = defaultdict(list)
+    transactions = list(transactions)
+    for month in range(1, 13):
+        filtered_transactions = filter_by_month(transactions, month)
+        total_income, total_expenses, net_cash_flow = calculate_summary_data(
+            filtered_transactions
+        )
+        cash_flow["Income"].append(total_income)
+        cash_flow["Expense"].append(total_expenses)
+
+    fig, ax = plt.subplots(figsize=(16, 9))
+    for cash_flow_type, values in cash_flow.items():
+        ax.bar(list(calendar.month_abbr[1:]), values, 0.5, label=cash_flow_type)
+        # Add annotation to bars
+        for bar in ax.patches:
+            ax.annotate(
+                f"${abs(bar.get_height()):,.0f}",
+                (bar.get_x() + 0.2, bar.get_height()),
+                ha="center",
+                va="center",
+                size=13,
+                xytext=(0, 8),
+                textcoords="offset points",
+            )
+
+    ax.set_title("Cash flow over months")
+    ax.legend(loc="upper right")
+
+    plt.show()
+
+
+def show_net_cash_flow(transactions):
+    """Display bar chart with net cash flow
+    by month"""
+    months = aggregate_by_month(transactions)
+    plot_bar(months.keys(), months.values())
 
 
 def main():
     filename = "transactions.csv"
     with open(filename, "r") as csvfile:
-        csvreader = csv.reader(csvfile)
+        transactions = csv.reader(csvfile)
         # extracting field names through first row
-        _ = next(csvreader)
-        show_month_info(csvreader, 11)
+        _ = next(transactions)
+
+        # transactions = filter_by_month(csvreader, 11)
+        # show_summary(transactions, ["Rent"])
+        show_net_cash_flow(transactions)
 
 
 if __name__ == "__main__":
