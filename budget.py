@@ -2,11 +2,13 @@ import calendar
 import csv
 from collections import defaultdict
 from enum import Enum
-from functools import reduce
 
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 
+# Rules are used to recategorize certain
+# recurring transactions. The dictionary
+# maps transaction name to category
 RULES = {
     "Biltpymts": "Rent",
     "American Express": "Restaurants",
