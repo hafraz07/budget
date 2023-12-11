@@ -1,3 +1,4 @@
+import argparse
 import calendar
 import csv
 from collections import defaultdict
@@ -250,14 +251,27 @@ def show_net_cash_flow(transactions):
 
 def main():
     filename = "transactions.csv"
+    parser = argparse.ArgumentParser(
+        description="Script to track spending and net cash flow"
+    )
+    parser.add_argument("-ncf", "--net_cash_flow", action="store_true")
+    parser.add_argument("-ccf", "--category_cash_flow", action="store_true")
+    parser.add_argument("-m", "--month")
+    args = parser.parse_args()
+
     with open(filename, "r") as csvfile:
         transactions = csv.reader(csvfile)
         # extracting field names through first row
         _ = next(transactions)
 
-        transactions = filter_by_month(transactions, 11)
-        show_summary(transactions, ["Rent"])
-        # show_net_cash_flow(transactions)
+        if args.net_cash_flow:
+            show_net_cash_flow(transactions)
+        elif args.category_cash_flow:
+            if args.month:
+                month_names = list(calendar.month_name)
+                month_num = month_names.index(args.month)
+                transactions = filter_by_month(transactions, month_num)
+            show_summary(transactions, ["Rent"])
 
 
 if __name__ == "__main__":
